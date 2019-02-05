@@ -116,7 +116,7 @@ echo "Create a SQL DB " $sqldbName
 az sql db create --name $sqldbName --resource-group $rgName --server $sqlsvrName --service-objective S3 
 
 echo "Create tables for the lab"
-wget -O ./createtbl.sql https://raw.githubusercontent.com/xlegend1024/az-advanced-analytics-lab/master/script/createtables.sql
+wget -O ./createtbl.sql https://raw.githubusercontent.com/xlegend1024/az-advanced-analytics-lab/master/scripts/createtables.sql
 sqlcmd -S $sqlsvrName.database.windows.net -d $sqldbName -U $sqladm -P $sqlpwd -i ./createtbl.sql -o ./sqlcmd_output.txt
 
 sqldbconn='Server=tcp:'$sqlsvrName'.database.windows.net,1433;Initial Catalog=wwimdb;Persist Security Info=False;User ID=sqladmin@;Password='$sqlpwd';Encrypt=true;Connection Timeout=30;'
