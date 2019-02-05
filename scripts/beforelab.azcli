@@ -1,0 +1,139 @@
+#!/bin/bash
+
+# Select Azure subscription
+az account list --output table
+
+echo ""
+read -p "Subscription Name for lab>>" subName
+
+if [ ! -z "$subName" ]; then
+    echo "You select " $subName " for the lab."
+    az account set --subscription "$subName" --verbose
+else
+    echo "Please run the script again!! EXIT"
+    exit
+fi
+
+chkName=$(az account list --output tsv --query "[?isDefault].name")
+
+if [ "$subName" = "$chkName" ]; then
+    echo "Subscripion Name has confirmed"
+else 
+    echo "Please try again with correct subscription name"
+    exit
+fi
+
+# Set a parameter that will be used for password 
+sqlpwd=1q2w3e4r5t^Y
+echo ""
+echo "Temporary passowrd for database is " $sqlpwd
+sleep 1 
+
+echo ""
+az account list-locations --output table --query []['name','displayName']
+echo "Type location for the lab using location code lift cell, NOT displayName on right"
+echo "For example, westus2, eastus2"
+read -p "Location >>" loc
+
+# set azure region
+if [ ! -z "$loc" ]; then
+    echo "You set location " $loc " for the lab."
+else
+    echo "Default location is westus2"
+    loc=westus2
+fi
+
+# 3. get subscruption ID
+# if you have exsiting one please use the one
+num=$(shuf -i0-500 -n1)
+rgName=azlab-$num-rg #Save it as ps1
+# set blob name that should be unique 
+blobName=azlabblob$num # It will be saved it in parameter file
+# set container name that will be created in Blob
+containerName=sampledata
+# set SQL Server (Instance) name
+sqlsvrName=azlabsql$num # It will be saved it in parameter file
+# Azure Key Vault Name
+akvName=akv$num
+# DO NOT CHANGE!!!
+sqldbName=nyctaxi
+# DO NOT CHANGE!!!
+sqladm=sqladmin
+SRC_STORAGE_ACCOUNT="nyctaxidew"
+SRC_STORAGE_ACCESS_KEY="8pzBEhPSUJKcZ+Jol6wWq5wM2RtCQNk75r577kt2ed/LYxmOOiAZdxqN2wMHfN2duhlswqGbT3Pw/YdHtuqngw=="
+
+# Create the Resource Group
+# if you have exsiting one you can skip this part
+if (true) then {
+    echo "1. Create Resource Group " $rgName
+    az group create --name $rgName --location $loc 
+}
+else
+    exit
+fi
+# Storage Account
+# Create the Storage Account
+if (true) then {
+    echo "2. Create Blob " $blobName
+    az storage account create --name $blobName --resource-group $rgName --sku Standard_LRS --location $loc --kind StorageV2 
+}
+else
+{
+    exit
+}
+fi 
+
+# Get blob connection string 
+blobConn=$(az storage account show-connection-string --name $blobName --resource-group $rgName --output tsv)
+blobkey1=$(az storage account keys list -n $blobName -g $rgName --output tsv --query [0].value)
+
+# Create a container
+echo "3. Create container in the blob" $containerName 
+az storage container create --name nyctaxi-consumption  --connection-string $blobConn
+az storage container create --name nyctaxi-curated --connection-string $blobConn
+az storage container create --name nyctaxi-demo --connection-string $blobConn
+az storage container create --name nyctaxi-raw --connection-string $blobConn
+az storage container create --name nyctaxi-ref-data --connection-string $blobConn
+az storage container create --name nyctaxi-staging --connection-string $blobConn
+az storage container create --name nyctaxi-scratch --connection-string $blobConn
+
+azcopy --source https://nyctaxidew.blob.core.windows.net/nyctaxi-staging/ --destination https://$blobName.blob.core.windows.net/nyctaxi-staging/ --source-key $SRC_STORAGE_ACCESS_KEY --dest-key $blobkey1 --sync-copy --recursive
+
+# Create SQL Server and restore database from backup 
+# Create a SQL Server
+echo "Create a SQL Server " $sqlsvrName
+az sql server create --admin-user $sqladm --admin-password $sqlpwd --location $loc --name $sqlsvrName --resource-group $rgName 
+
+# Update SQL Server Firewall rule
+# Opeing all firewall is NOT recommend for production or in any environment
+# Opening all IP address is for this demo and lab only
+echo "Update SQL Server Firewall"
+az sql server firewall-rule create -n openall --start-ip-address 1.1.1.1 --end-ip-addres 255.255.255.255 -g $rgName -s $sqlsvrName
+az sql server firewall-rule create -g $rgName -s $sqlsvrName -n allowazure --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0
+
+# Create a SQL DB
+echo "Create a SQL DB " $sqldbName
+az sql db create --name $sqldbName --resource-group $rgName --server $sqlsvrName --service-objective S3 
+
+echo "Create tables for the lab"
+wget -O ./createtbl.sql https://raw.githubusercontent.com/xlegend1024/az-advanced-analytics-lab/master/script/createtables.sql
+sqlcmd -S $sqlsvrName.database.windows.net -d $sqldbName -U $sqladm -P $sqlpwd -i ./createtbl.sql -o ./sqlcmd_output.txt
+
+sqldbconn='Server=tcp:'$sqlsvrName'.database.windows.net,1433;Initial Catalog=wwimdb;Persist Security Info=False;User ID=sqladmin@;Password='$sqlpwd';Encrypt=true;Connection Timeout=30;'
+
+# Create keyvault
+## Steps
+echo "Create Azure Key Vault"
+az keyvault create --name $akvName --resource-group $rgName --location $loc
+
+az keyvault secret set --vault-name $akvName --name 'dev-sqldbconn' --value $sqldbconn
+az keyvault secret set --vault-name $akvName --name 'dev-blobconn' --value $blobConn
+
+echo "Resource Group:   " $rgName >> ./azlab.txt
+echo "Location:         " $loc >> ./azlab.txt
+echo "Blob:             " $blobName >> ./azlab.txt
+echo "Blob Key:         " $blobkey1 >> ./azlab.txt
+echo "SQL Server:       " $sqlsvrName >> ./azlab.txt
+echo "SQL Database:     " $sqladm >> ./azlab.txt
+echo "SQL DB Password:  " $sqlpwd >> ./azlab.txt
+echo "SQL DB Connection:" $sqldbconn >> ./azlab.txt

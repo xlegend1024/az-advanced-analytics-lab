@@ -1,0 +1,31 @@
+DROP TABLE IF EXISTS TRIPS_BY_YEAR;
+CREATE TABLE TRIPS_BY_YEAR
+(
+    TAXI_TYPE VARCHAR(10),
+    TRIP_YEAR INT,
+    TRIP_COUNT BIGINT
+);
+GO
+
+DROP TABLE IF EXISTS TRIPS_BY_HOUR;
+CREATE TABLE TRIPS_BY_HOUR
+(
+    TAXI_TYPE VARCHAR(10),
+    TRIP_YEAR INT,
+    TRIP_HOUR INT,
+    TRIP_COUNT BIGINT
+);
+GO
+
+DROP TABLE IF EXISTS BATCH_JOB_HISTORY;
+CREATE TABLE BATCH_JOB_HISTORY
+(
+    batch_id int,
+    batch_step_id int,
+    batch_step_description varchar(50),
+    batch_step_status varchar(10),
+    batch_step_time varchar(25)
+);
+ALTER TABLE BATCH_JOB_HISTORY
+ADD CONSTRAINT batch_step_time_def
+DEFAULT CURRENT_TIMESTAMP FOR batch_step_time; 
