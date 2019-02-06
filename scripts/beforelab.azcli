@@ -27,7 +27,7 @@ fi
 sqlpwd=1q2w3e4r5t^Y
 echo ""
 echo "Temporary passowrd for database is " $sqlpwd
-sleep 1 
+sleep 3 
 
 echo ""
 az account list-locations --output table --query []['name','displayName']
@@ -43,7 +43,6 @@ else
     loc=westus2
 fi
 
-# 3. get subscruption ID
 # if you have exsiting one please use the one
 num=$(shuf -i0-500 -n1)
 rgName=azlab-$num-rg #Save it as ps1
@@ -65,7 +64,7 @@ SRC_STORAGE_ACCESS_KEY="8pzBEhPSUJKcZ+Jol6wWq5wM2RtCQNk75r577kt2ed/LYxmOOiAZdxqN
 # Create the Resource Group
 # if you have exsiting one you can skip this part
 if (true) then {
-    echo "1. Create Resource Group " $rgName
+    echo "Create Resource Group " $rgName
     az group create --name $rgName --location $loc 
 }
 else
@@ -74,7 +73,7 @@ fi
 # Storage Account
 # Create the Storage Account
 if (true) then {
-    echo "2. Create Blob " $blobName
+    echo "Create Blob " $blobName
     az storage account create --name $blobName --resource-group $rgName --sku Standard_LRS --location $loc --kind StorageV2 
 }
 else
@@ -88,7 +87,7 @@ blobConn=$(az storage account show-connection-string --name $blobName --resource
 blobkey1=$(az storage account keys list -n $blobName -g $rgName --output tsv --query [0].value)
 
 # Create a container
-echo "3. Create container in the blob" $containerName 
+echo "Create container in the blob" $containerName 
 az storage container create --name nyctaxi-consumption  --connection-string $blobConn
 az storage container create --name nyctaxi-curated --connection-string $blobConn
 az storage container create --name nyctaxi-demo --connection-string $blobConn
@@ -97,7 +96,10 @@ az storage container create --name nyctaxi-ref-data --connection-string $blobCon
 az storage container create --name nyctaxi-staging --connection-string $blobConn
 az storage container create --name nyctaxi-scratch --connection-string $blobConn
 
-azcopy --source https://nyctaxidew.blob.core.windows.net/nyctaxi-staging/ --destination https://$blobName.blob.core.windows.net/nyctaxi-staging/ --source-key $SRC_STORAGE_ACCESS_KEY --dest-key $blobkey1 --sync-copy --recursive
+#echo "Copy sample data for the lab"
+#azcopy --source https://nyctaxidew.blob.core.windows.net/nyctaxi-staging/transactional-data/year=2015/ --destination https://$blobName.blob.core.windows.net/nyctaxi-staging/transactional-data/year=2015/ --source-key $SRC_STORAGE_ACCESS_KEY --dest-key $blobkey1 --sync-copy --recursive
+#azcopy --source https://nyctaxidew.blob.core.windows.net/nyctaxi-staging/transactional-data/year=2016/ --destination https://$blobName.blob.core.windows.net/nyctaxi-staging/transactional-data/year=2016/ --source-key $SRC_STORAGE_ACCESS_KEY --dest-key $blobkey1 --sync-copy --recursive
+#azcopy --source https://nyctaxidew.blob.core.windows.net/nyctaxi-staging/transactional-data/year=2017/ --destination https://$blobName.blob.core.windows.net/nyctaxi-staging/transactional-data/year=2017/ --source-key $SRC_STORAGE_ACCESS_KEY --dest-key $blobkey1 --sync-copy --recursive
 
 # Create SQL Server and restore database from backup 
 # Create a SQL Server
@@ -119,7 +121,10 @@ echo "Create tables for the lab"
 wget -O ./createtbl.sql https://raw.githubusercontent.com/xlegend1024/az-advanced-analytics-lab/master/scripts/createtables.sql
 sqlcmd -S $sqlsvrName.database.windows.net -d $sqldbName -U $sqladm -P $sqlpwd -i ./createtbl.sql -o ./sqlcmd_output.txt
 
-sqldbconn='Server=tcp:'$sqlsvrName'.database.windows.net,1433;Initial Catalog=wwimdb;Persist Security Info=False;User ID=sqladmin@;Password='$sqlpwd';Encrypt=true;Connection Timeout=30;'
+#sqldbconn='Server=tcp:'$sqlsvrName'.database.windows.net,1433;Initial Catalog='$sqldbName';Persist Security Info=False;User ID=sqladmin@;Password='$sqlpwd';Encrypt=true;Connection Timeout=30;'
+sqldbconn=$(az sql db show-connection-string -s $sqlsvrName -n $sqldbName -c ado.net)
+sqldbconn=${_sqldbconn/<username>/$sqladm}
+sqldbconn=${_sqldbconn/<password>/$sqlpwd}  
 
 # Create keyvault
 ## Steps
@@ -129,6 +134,7 @@ az keyvault create --name $akvName --resource-group $rgName --location $loc
 az keyvault secret set --vault-name $akvName --name 'dev-sqldbconn' --value $sqldbconn
 az keyvault secret set --vault-name $akvName --name 'dev-blobconn' --value $blobConn
 
+echo $(date +%F %H-%M-%S) >> ./azlab.txt
 echo "Resource Group:   " $rgName >> ./azlab.txt
 echo "Location:         " $loc >> ./azlab.txt
 echo "Blob:             " $blobName >> ./azlab.txt
@@ -137,3 +143,5 @@ echo "SQL Server:       " $sqlsvrName >> ./azlab.txt
 echo "SQL Database:     " $sqladm >> ./azlab.txt
 echo "SQL DB Password:  " $sqlpwd >> ./azlab.txt
 echo "SQL DB Connection:" $sqldbconn >> ./azlab.txt
+echo "" >> ./azlab.txt
+
