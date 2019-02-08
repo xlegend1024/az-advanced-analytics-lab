@@ -4,9 +4,17 @@
 
 ## Create Lab Environment
 
-## Ingest New York Taxi data
+## Ingest New York Taxi Data
 
-## Data Engineering
+### Move Data
+
+
+
+### Access Data
+
+### Understand Data
+
+- Visualize 
 
 ## Data Science
 
@@ -14,4 +22,6 @@
 
 ### Training
 
-### 
+### ML Pipeline
+
+
