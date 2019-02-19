@@ -100,6 +100,7 @@ az storage container create --name nyctaxi-scratch --connection-string $blobConn
 #azcopy --source https://nyctaxidew.blob.core.windows.net/nyctaxi-staging/transactional-data/year=2015/ --destination https://$blobName.blob.core.windows.net/nyctaxi-staging/transactional-data/year=2015/ --source-key $SRC_STORAGE_ACCESS_KEY --dest-key $blobkey1 --sync-copy --recursive
 #azcopy --source https://nyctaxidew.blob.core.windows.net/nyctaxi-staging/transactional-data/year=2016/ --destination https://$blobName.blob.core.windows.net/nyctaxi-staging/transactional-data/year=2016/ --source-key $SRC_STORAGE_ACCESS_KEY --dest-key $blobkey1 --sync-copy --recursive
 #azcopy --source https://nyctaxidew.blob.core.windows.net/nyctaxi-staging/transactional-data/year=2017/ --destination https://$blobName.blob.core.windows.net/nyctaxi-staging/transactional-data/year=2017/ --source-key $SRC_STORAGE_ACCESS_KEY --dest-key $blobkey1 --sync-copy --recursive
+# Use ADF during the workshop
 
 # Create SQL Server and restore database from backup 
 # Create a SQL Server
